@@ -1,39 +1,76 @@
 # Video Compressor
 
-A simple desktop tool to reduce video file size while keeping quality as high as possible.
+A simple desktop tool for reducing video file size while keeping quality as high as possible.
 
 ## Features
 - Select one or more videos
-- Uses FFmpeg's efficient H.264 encoding
-- Offers quality presets: Best, Balanced, and Smaller file
+- Uses FFmpeg and H.264 encoding
+- Offers quality presets: Best quality, Balanced, and Smaller file
 - Saves compressed copies next to the original with a `_compressed` suffix
 - Supports common video formats such as MP4, MKV, MOV, AVI, WEBM, and more
 
 ## Requirements
 
-Install FFmpeg on your system before running the app.
+You must install FFmpeg before running the app.
 
-- Windows: https://www.ffmpeg.org/download.html
-- macOS: `brew install ffmpeg`
-- Ubuntu/Debian: `sudo apt install ffmpeg`
+### Windows
+1. Download a FFmpeg build from: https://www.gyan.dev/ffmpeg/builds/
+2. Extract it to a folder such as:
+   `C:\Users\A S U S\Downloads\ffmpeg-9.0.1-essentials_build`
+3. Add the `bin` folder to your system PATH:
+   `C:\Users\A S U S\Downloads\ffmpeg-9.0.1-essentials_build\bin`
+4. Restart PowerShell or VS Code after updating PATH.
 
-Then install Python dependencies:
+### macOS
+```bash
+brew install ffmpeg
+```
+
+### Ubuntu / Debian
+```bash
+sudo apt install ffmpeg
+```
+
+## Check FFmpeg is available
+
+Open PowerShell and run:
+
+```powershell
+ffmpeg -version
+```
+
+If it prints the FFmpeg version, the tool is installed correctly.
+
+## Setup the project
+
+From the project folder:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run it
+## Run the app
 
 ```bash
 python compress_images.py
 ```
 
+## How to use
+1. Click `Browse`
+2. Select one or more video files
+3. Choose a quality preset
+4. Optionally set a maximum dimension for resizing
+5. Click `Compress Videos`
+6. The app saves compressed files next to the original with `_compressed` added to the name
+
 ## How it works
 - Video quality is controlled with FFmpeg CRF values.
-- The app uses H.264 with AAC audio and outputs MP4 files for compatibility.
-- A max dimension can be applied to reduce file size further by scaling down the video.
+- The app encodes using H.264 and AAC audio.
+- Output is saved as MP4 for compatibility.
+- A max dimension may reduce file size further by shrinking larger videos.
 
 ## Notes
 - Lower CRF values keep more quality but produce larger files.
-- The "Best quality" preset is usually best for important footage, while "Smaller file" is better for sharing.
+- The "Best quality" preset is best for important footage.
+- The "Smaller file" preset is better when you want faster uploads or smaller storage use.
+- If `ffmpeg` is not found, the app will show an error until FFmpeg is installed and available in PATH.
