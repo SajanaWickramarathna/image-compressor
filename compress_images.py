@@ -1,88 +1,115 @@
 import os
+import shutil
+import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from PIL import Image, ImageOps
-
 QUALITY_PRESETS = {
-    "Best quality": 92,
-    "Balanced": 80,
-    "Smaller file": 68,
+    "Best quality": 23,
+    "Balanced": 28,
+    "Smaller file": 35,
+}
+
+VIDEO_EXTENSIONS = {
+    ".mp4",
+    ".mkv",
+    ".mov",
+    ".avi",
+    ".wmv",
+    ".flv",
+    ".webm",
+    ".m4v",
+    ".mpeg",
+    ".mpg",
+    ".3gp",
+    ".3g2",
+    ".ts",
 }
 
 
+def is_video_file(path):
+    return os.path.splitext(path)[1].lower() in VIDEO_EXTENSIONS
+
+
 def get_output_path(input_path, convert_to_webp=False):
-    directory, filename = os.path.split(input_path)
-    name, ext = os.path.splitext(filename)
-    target_ext = ".webp" if convert_to_webp else ext
-    return os.path.join(directory, f"{name}_compressed{target_ext}")
+    normalized_path = os.path.normpath(input_path)
+    directory, filename = os.path.split(normalized_path)
+    name, _ = os.path.splitext(filename)
+    target_ext = ".mp4"
+    return os.path.normpath(os.path.join(directory, f"{name}_compressed{target_ext}"))
 
 
-def resize_if_needed(image, max_dimension):
+def validate_max_dimension(max_dimension):
     if not max_dimension:
-        return image
+        return None
 
     try:
         max_dimension = int(max_dimension)
-    except ValueError:
-        raise ValueError("Max dimension must be a number.")
+    except ValueError as exc:
+        raise ValueError("Max dimension must be a number.") from exc
 
     if max_dimension <= 0:
         raise ValueError("Max dimension must be greater than 0.")
 
-    width, height = image.size
-    if width > max_dimension or height > max_dimension:
-        image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
-    return image
+    return max_dimension
 
 
-def compress_image(input_path, quality_name, max_dimension=None, convert_to_webp=False):
+def build_video_filter(max_dimension):
+    if not max_dimension:
+        return None
+
+    return (
+        f"scale='min({max_dimension},iw)':min'({max_dimension},ih)':"
+        "force_original_aspect_ratio=decrease"
+    )
+
+
+def compress_video(input_path, quality_name, max_dimension=None):
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        raise RuntimeError("ffmpeg is not installed or not on PATH. Please install ffmpeg and try again.")
+
     quality = QUALITY_PRESETS[quality_name]
-    original = Image.open(input_path)
-    image = ImageOps.exif_transpose(original)
+    max_dimension = validate_max_dimension(max_dimension)
+    output_path = get_output_path(input_path)
 
-    if image.mode in ("RGBA", "LA"):
-        image = image.convert("RGBA")
-    elif image.mode not in ("RGB", "L", "P"):
-        image = image.convert("RGB")
+    command = [ffmpeg_path, "-y", "-i", input_path]
+    video_filter = build_video_filter(max_dimension)
+    if video_filter:
+        command.extend(["-vf", video_filter])
 
-    image = resize_if_needed(image, max_dimension)
+    command.extend(
+        [
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            str(quality),
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "+faststart",
+            output_path,
+        ]
+    )
 
-    output_path = get_output_path(input_path, convert_to_webp=convert_to_webp)
-
-    if convert_to_webp:
-        image = image.convert("RGB")
-        image.save(output_path, format="WEBP", quality=quality, method=6, optimize=True)
-        return output_path
-
-    original_ext = os.path.splitext(input_path)[1].lower()
-
-    if original_ext in (".png", ".PNG"):
-        if image.mode == "RGBA":
-            image.save(output_path, format="PNG", optimize=True)
-        else:
-            image.save(output_path, format="PNG", optimize=True)
-        return output_path
-
-    if original_ext in (".jpg", ".jpeg", ".JPG", ".JPEG"):
-        image = image.convert("RGB")
-        image.save(output_path, format="JPEG", quality=quality, optimize=True, progressive=True)
-        return output_path
-
-    image.save(output_path, format="JPEG", quality=quality, optimize=True, progressive=True)
+    subprocess.run(command, check=True, capture_output=True, text=True)
     return output_path
 
 
-class ImageCompressorApp:
+class VideoCompressorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Image Compressor")
+        self.root.title("Video Compressor")
         self.root.geometry("640x420")
         self.root.resizable(False, False)
 
         self.selected_files = []
 
-        tk.Label(root, text="Select images to compress", font=("Segoe UI", 12, "bold")).pack(pady=(18, 8))
+        tk.Label(root, text="Select videos to compress", font=("Segoe UI", 12, "bold")).pack(pady=(18, 8))
 
         row = tk.Frame(root)
         row.pack(fill="x", padx=18, pady=6)
@@ -100,21 +127,18 @@ class ImageCompressorApp:
         quality_menu.grid(row=0, column=1, sticky="w")
 
         tk.Label(controls, text="Max dimension:").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=6)
-        self.max_dimension = tk.StringVar(value="2000")
+        self.max_dimension = tk.StringVar(value="1280")
         tk.Entry(controls, textvariable=self.max_dimension, width=12).grid(row=1, column=1, sticky="w")
 
-        self.webp_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(controls, text="Convert to WebP for smaller files", variable=self.webp_var).grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
-
-        tk.Button(root, text="Compress Images", command=self.compress_all, width=22, height=2, bg="#2d7ff9", fg="white", font=("Segoe UI", 10, "bold")).pack(pady=16)
+        tk.Button(root, text="Compress Videos", command=self.compress_all, width=22, height=2, bg="#2d7ff9", fg="white", font=("Segoe UI", 10, "bold")).pack(pady=16)
 
         self.status_var = tk.StringVar(value="Ready")
         tk.Label(root, textvariable=self.status_var, fg="#1f5f3a", font=("Segoe UI", 10, "bold")).pack()
 
     def select_files(self):
         files = filedialog.askopenfilenames(
-            title="Choose images",
-            filetypes=[("Image files", "*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff")],
+            title="Choose videos",
+            filetypes=[("Video files", "*.mp4 *.mkv *.mov *.avi *.wmv *.flv *.webm *.m4v *.mpeg *.mpg *.3gp *.3g2 *.ts")],
         )
         if not files:
             return
@@ -127,15 +151,14 @@ class ImageCompressorApp:
 
     def compress_all(self):
         if not self.selected_files:
-            messagebox.showwarning("No files", "Please select at least one image first.")
+            messagebox.showwarning("No files", "Please select at least one video first.")
             return
 
         max_dimension = self.max_dimension.get().strip()
         try:
-            if max_dimension:
-                int(max_dimension)
-        except ValueError:
-            messagebox.showerror("Invalid value", "Max dimension must be a number.")
+            validate_max_dimension(max_dimension)
+        except ValueError as exc:
+            messagebox.showerror("Invalid value", str(exc))
             return
 
         self.status_var.set("Compressing...")
@@ -143,12 +166,16 @@ class ImageCompressorApp:
 
         compressed_count = 0
         for path in self.selected_files:
+            if not is_video_file(path):
+                messagebox.showwarning("Unsupported file", f"{os.path.basename(path)} is not a supported video file.")
+                self.status_var.set("Compression stopped due to an unsupported file.")
+                return
+
             try:
-                output_path = compress_image(
+                output_path = compress_video(
                     path,
                     quality_name=self.quality_var.get(),
                     max_dimension=max_dimension,
-                    convert_to_webp=self.webp_var.get(),
                 )
                 compressed_count += 1
                 if output_path:
@@ -158,15 +185,15 @@ class ImageCompressorApp:
                 self.status_var.set("Compression stopped due to an error.")
                 return
 
-        self.status_var.set(f"Done! {compressed_count} image(s) compressed.")
-        messagebox.showinfo("Complete", f"Compressed {compressed_count} image(s).\nSaved as files ending with '_compressed'.")
+        self.status_var.set(f"Done! {compressed_count} video(s) compressed.")
+        messagebox.showinfo("Complete", f"Compressed {compressed_count} video(s).\nSaved as files ending with '_compressed'.")
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = ImageCompressorApp(root)
+    app = VideoCompressorApp(root)
     try:
         root.mainloop()
     except KeyboardInterrupt:
-        print("\nImage compressor closed by user.")
+        print("\nVideo compressor closed by user.")
         root.destroy()

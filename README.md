@@ -1,31 +1,39 @@
-# Image Compressor
+# Video Compressor
 
-A simple desktop tool to reduce image file size while preserving quality as much as possible.
+A simple desktop tool to reduce video file size while keeping quality as high as possible.
 
 ## Features
-- Select one or more images
-- Keeps high visual quality by default
+- Select one or more videos
+- Uses FFmpeg's efficient H.264 encoding
 - Offers quality presets: Best, Balanced, and Smaller file
 - Saves compressed copies next to the original with a `_compressed` suffix
-- Supports JPG, JPEG, PNG, and WEBP
+- Supports common video formats such as MP4, MKV, MOV, AVI, WEBM, and more
+
+## Requirements
+
+Install FFmpeg on your system before running the app.
+
+- Windows: https://www.ffmpeg.org/download.html
+- macOS: `brew install ffmpeg`
+- Ubuntu/Debian: `sudo apt install ffmpeg`
+
+Then install Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
 
 ## Run it
 
-1. Open a terminal in this folder.
-2. Install the dependency:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Start the app:
-   ```bash
-   python compress_images.py
-   ```
+```bash
+python compress_images.py
+```
 
 ## How it works
-- JPEG and WEBP are saved with optimized compression and high quality settings.
-- PNG files are optimized without unnecessary metadata.
-- Large images can also be resized to a max dimension to reduce size further while keeping quality strong.
+- Video quality is controlled with FFmpeg CRF values.
+- The app uses H.264 with AAC audio and outputs MP4 files for compatibility.
+- A max dimension can be applied to reduce file size further by scaling down the video.
 
 ## Notes
-- For true lossless compression, PNG is more limited than JPEG/WEBP.
-- The best quality-preserving option is usually the "Best quality" preset.
+- Lower CRF values keep more quality but produce larger files.
+- The "Best quality" preset is usually best for important footage, while "Smaller file" is better for sharing.

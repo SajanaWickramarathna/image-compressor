@@ -1,1 +1,2 @@
-Pillow>=10.0.0
+# No Python package dependencies are required.
+# FFmpeg must be installed separately on the system.
