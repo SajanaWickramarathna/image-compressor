@@ -1,2 +1,4 @@
-# No Python package dependencies are required.
+Pillow
+resvg
+
 # FFmpeg must be installed separately on the system.
